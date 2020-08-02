@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -31,12 +32,12 @@ const (
 )
 
 var (
-	addr     = flag.String("addr", ":8080", "http service address")
+	bindIp   = flag.String("bind", "8080", "the port you would like to bind to")
+	filename string
 	upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
 	}
-	filename  string
 	homeTempl = template.Must(template.New("").Parse(homeHTML))
 )
 
@@ -132,7 +133,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
+	if r.URL.Path != "/"+filename {
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
@@ -161,25 +162,25 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	flag.Parse()
-	if flag.NArg() != 1 {
-		log.Fatal("File not specified")
+	if flag.NArg() == 0 {
+		log.Fatal("must specify a file")
 	}
 	filename = flag.Args()[0]
+	if !strings.HasSuffix(filename, "md") {
+		log.Fatal("must specify a markdown file")
+	}
 	path, err := filepath.Abs(filename)
-	dir := filepath.Join(filepath.Dir(path), "static")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("Watching %s...\n", filename)
-	fmt.Printf("View at http://localhost%s\n", *addr)
-	fmt.Printf("Static content can be sourced at ./static (%s)\n", dir)
+	fmt.Printf("view at http://localhost:%s/%s\n", *bindIp, filename)
 
-	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(dir))))
-
-	http.HandleFunc("/", handler)
+	http.Handle("/", http.FileServer(http.Dir(filepath.Dir(path))))
+	http.HandleFunc("/"+filename, handler)
 	http.HandleFunc("/ws", wsHandler)
-	if err := http.ListenAndServe(*addr, nil); err != nil {
+
+	if err := http.ListenAndServe(":"+*bindIp, nil); err != nil {
 		log.Fatal(err)
 	}
 }

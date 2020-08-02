@@ -1,4 +1,4 @@
-![](static/gosee.png)
+![](./gosee.png)
 
 # GoSee
 
