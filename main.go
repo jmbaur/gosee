@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bytes"
+	"encoding/base64"
 	"flag"
 	"fmt"
 	"html/template"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -13,22 +16,20 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/jmbaur/gosee/md"
 	"github.com/radovskyb/watcher"
+	"github.com/yuin/goldmark"
+	highlighting "github.com/yuin/goldmark-highlighting"
+	"github.com/yuin/goldmark/extension"
+	"github.com/yuin/goldmark/renderer/html"
 )
 
 const (
-	// Time allowed to write the file to the client.
-	writeWait = 10 * time.Second
-
-	// Time allowed to read the next pong message from the client.
-	pongWait = 60 * time.Second
-
-	// Send pings to client with this period. Must be less than pongWait.
+	writeWait  = 10 * time.Second
+	pongWait   = 60 * time.Second
 	pingPeriod = (pongWait * 9) / 10
-
-	// Poll file for changes with this period.
 	filePeriod = 100 * time.Millisecond
+
+	icon = `iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAMAAAD04JH5AAABdFBMVEUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKUwSXAAAAe3RSTlMAAQIDBAUGBwkKDBETFRYXGhsfIiMnKSorLTAxMjM0Njc4P0VHTE1OUlNXWlxgY2RlZmprbW50d3yDhIWJiouNjo+QkpSWnZ+goqmrrK2ur7W2uLm9vsPIzM7Q0dLU1dba29/g4+Tm6Ors7e7v8PHy9PX29/j5+vv8/f6uVqFrAAAC9klEQVR4nOya91sTSxSGT3ZzrwEhUQSiBrCiWLD3hlIURLAhlgUsJFaUhKLJnn/eZxOTwJTdWXVmHvV8v2Xm7LyvySe7FKBQKBQKhUKhUCiUanJD3ic0mpX50d4Gvv2uWXg90+kav3vRDh+xkK3++9/Y4iMWMgBg6f2vZQog59sUwB4YssrHEfDsCsyB4f//bIpgl49IAiTwZwv4vu9XKpVKuVwu/zYB9lFhXHzdODsXdc5PC7QsiC5baDEmANkSf1Upy43pE4BB/qpBfkqjAF8DrgCaBdga8AXQLMDUQFAA3QKbayAogHaBjTUQFUC/QLMGwgLoF2jUQFwAAwL1GogLYEKgVgNJAYwIBDWQFcCIAGRL0gKYEYBBaQEMCYSGBEiABP5egRNi3kkR4Jia6/FYAqu9ojP61kQCnztU+DuWYwngYht/Rtui+C2edaP5yafxPgLERw675jyWfcaXogWuxuwAIl5m165IS/ZtTxR/fyW+gN+/eemQL2/569Zw/tY8y1MQwKXOjSudS7K5ILfDBe5xPBUBfJFqLqQ8+VyQI2H8UyxOUQAnmgsTYXOI+HG7nN/Ff6et+hXsTP312fA5RJxJyPj/P+f4ygLre2sv961HCuAFmcBNnq8sgPn24FW6EDUXyO4W8w+KfjCvfhOZcQHcJ9FziPgyJeKn3wn4MQTwGsB1lTlEHBMJPBDx4wjgwIDaHCL28/zzQn4sgS/LygLvM+z+rrVfF4gz95DZTs3LztEkgOc2b49Jz9ElsLpz4+5h2TH6BNDb0tzc9sGCAN5q7DkzUr5OAf9Afe+inK9TAN/+eJrs+6pFIJFIJBzHcVzXdZPJpGjmfvWE1lchfM2/MTkdCNwJHdErUOoCOBo+olcAn/3XsWRVAG/MRgzoFogMCcCKXX4RZPdpQ/Fg1K7AMPTaFcgBTNvkTwJApmCPn6/+MVfWmkG+u3bHzUzZ4U+mGzf9npG5oll40RvOsY8eFAqFQqFQKBQK5R/N9wAAAP//NnxaZ7cRZpgAAAAASUVORK5CYII=`
 )
 
 var (
@@ -40,6 +41,27 @@ var (
 	}
 	homeTempl = template.Must(template.New("").Parse(homeHTML))
 )
+
+func markdownify(p []byte) []byte {
+	markdown := goldmark.New(
+		goldmark.WithExtensions(
+			highlighting.NewHighlighting(
+				highlighting.WithStyle("github"),
+			),
+			extension.GFM,
+		),
+		goldmark.WithRendererOptions(
+			html.WithHardWraps(),
+			html.WithXHTML(),
+			html.WithUnsafe()),
+	)
+	var buf bytes.Buffer
+	if err := markdown.Convert(p, &buf); err != nil {
+		log.Fatalln(err)
+	}
+
+	return buf.Bytes()
+}
 
 func readFile() ([]byte, error) {
 	file, err := os.Open(filename)
@@ -87,35 +109,25 @@ func writer(ws *websocket.Conn) {
 	}
 }
 
-func watch(ws *websocket.Conn) {
-	w := watcher.New()
-	go func() {
-		for {
-			select {
-			case <-w.Event:
-				p, err := readFile()
-				if err != nil {
-					p = []byte(err.Error())
-				}
-				ws.SetWriteDeadline(time.Now().Add(writeWait))
-				if err := ws.WriteMessage(websocket.TextMessage, md.Markdownify(p)); err != nil {
-					return
-				}
-			case err := <-w.Error:
-				log.Fatal(err)
-			case <-w.Closed:
+func watch(w *watcher.Watcher, ws *websocket.Conn) {
+	for {
+		select {
+		case <-w.Event:
+			p, err := readFile()
+			if err != nil {
+				p = []byte(err.Error())
+			}
+			ws.SetWriteDeadline(time.Now().Add(writeWait))
+			if err := ws.WriteMessage(websocket.TextMessage, markdownify(p)); err != nil {
 				return
 			}
+		case err := <-w.Error:
+			log.Fatal(err)
+		case <-w.Closed:
+			return
 		}
-
-	}()
-
-	if err := w.Add(filename); err != nil {
-		log.Fatal(err)
 	}
-	if err := w.Start(filePeriod); err != nil {
-		log.Fatal(err)
-	}
+
 }
 
 func wsHandler(w http.ResponseWriter, r *http.Request) {
@@ -127,8 +139,17 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	watcher := watcher.New()
+	go watch(watcher, ws)
+
+	if err := watcher.Add(filename); err != nil {
+		log.Fatal(err)
+	}
+	if err := watcher.Start(filePeriod); err != nil {
+		log.Fatal(err)
+	}
+
 	go writer(ws)
-	go watch(ws)
 	reader(ws)
 }
 
@@ -154,7 +175,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}{
 		r.Host,
 		filename,
-		template.HTML(md.Markdownify(p)),
+		template.HTML(markdownify(p)),
 	}
 
 	homeTempl.Execute(w, &v)
@@ -179,6 +200,11 @@ func main() {
 	http.Handle("/", http.FileServer(http.Dir(filepath.Dir(path))))
 	http.HandleFunc("/"+filename, handler)
 	http.HandleFunc("/ws", wsHandler)
+	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		dec := base64.NewDecoder(base64.StdEncoding, strings.NewReader(icon))
+		w.Header().Set("Content-Type", "image/png")
+		io.Copy(w, dec)
+	})
 
 	if err := http.ListenAndServe(":"+*bindIp, nil); err != nil {
 		log.Fatal(err)
@@ -199,16 +225,16 @@ const homeHTML = `
     <div id="root" class="markdown-body">{{.Data}}</div>
     <script type="text/javascript">
       (function() {
-        var root = document.getElementById("root");
-        var conn = new WebSocket("ws://{{.Host}}/ws");
-        conn.onclose = function(evt) {
-          root.innerHTML = "Connection closed";
-          console.log("connection closed");
-        };
-        conn.onmessage = function(evt) {
-          console.log("file updated");
-          root.innerHTML = evt.data;
-        };
+	var root = document.getElementById("root");
+	var conn = new WebSocket("ws://{{.Host}}/ws");
+	conn.onclose = function(evt) {
+	  root.innerHTML = "Connection closed";
+	  console.log("connection closed");
+	};
+	conn.onmessage = function(evt) {
+	  console.log("file updated");
+	  root.innerHTML = evt.data;
+	};
       })();
     </script>
   </body>
