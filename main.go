@@ -35,11 +35,12 @@ const (
 var (
 	bindIp   = flag.String("bind", "8080", "the port you would like to bind to")
 	filename string
+	filetype string
 	upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
 	}
-	homeTempl = template.Must(template.New("").Parse(homeHTML))
+	mdTempl = template.Must(template.New("").Parse(mdHTML))
 )
 
 func markdownify(p []byte) []byte {
@@ -63,8 +64,8 @@ func markdownify(p []byte) []byte {
 	return buf.Bytes()
 }
 
-func readFile() ([]byte, error) {
-	file, err := os.Open(filename)
+func readFile(loc string) ([]byte, error) {
+	file, err := os.Open(loc)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +114,7 @@ func watch(w *watcher.Watcher, ws *websocket.Conn) {
 	for {
 		select {
 		case <-w.Event:
-			p, err := readFile()
+			p, err := readFile(filename)
 			if err != nil {
 				p = []byte(err.Error())
 			}
@@ -162,23 +163,35 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	p, err := readFile()
-	if err != nil {
-		p = []byte(err.Error())
-	}
 
-	var v = struct {
-		Host     string
-		Filename string
-		Data     template.HTML
-	}{
-		r.Host,
-		filename,
-		template.HTML(markdownify(p)),
-	}
+	switch filetype {
+	case "markdown":
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		p, err := readFile(filename)
+		if err != nil {
+			p = []byte(err.Error())
+		}
+		var v = struct {
+			Host     string
+			Filename string
+			Data     template.HTML
+		}{
+			r.Host,
+			filename,
+			template.HTML(markdownify(p)),
+		}
 
-	homeTempl.Execute(w, &v)
+		mdTempl.Execute(w, &v)
+	case "pdf":
+		data, err := readFile(filename)
+		if err != nil {
+			io.Copy(w, strings.NewReader(err.Error()))
+			return
+		}
+		src := base64.StdEncoding.EncodeToString(data)
+		w.Header().Set("Content-Type", "application/pdf")
+		io.Copy(w, strings.NewReader(src))
+	}
 }
 
 func main() {
@@ -187,9 +200,16 @@ func main() {
 		log.Fatal("must specify a file")
 	}
 	filename = flag.Args()[0]
-	if !strings.HasSuffix(filename, "md") {
+
+	switch strings.Split(filename, ".")[1] {
+	case "md":
+		filetype = "markdown"
+	case "pdf":
+		filetype = "pdf"
+	default:
 		log.Fatal("must specify a markdown file")
 	}
+
 	path, err := filepath.Abs(filename)
 	if err != nil {
 		log.Fatal(err)
@@ -211,7 +231,7 @@ func main() {
 	}
 }
 
-const homeHTML = `
+const mdHTML = `
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -226,6 +246,51 @@ const homeHTML = `
     <script type="text/javascript">
       (function() {
 	var root = document.getElementById("root");
+	var conn = new WebSocket("ws://{{.Host}}/ws");
+	conn.onclose = function(evt) {
+	  root.innerHTML = "Connection closed";
+	  console.log("connection closed");
+	};
+	conn.onmessage = function(evt) {
+	  console.log("file updated");
+	  root.innerHTML = evt.data;
+	};
+      })();
+    </script>
+  </body>
+</html>
+`
+
+const pdfHTML = `
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.5.207/pdf_viewer.min.css"
+    />
+    <title>{{.Filename}}</title>
+  </head>
+  <body>
+    <canvas id="root" style="border:1px solid black;">{{.Data}}</canvas>
+    <script
+      type="text/javascript"
+      src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.5.207/pdf.min.js"
+    ></script>
+    <script type="text/javascript">
+      (function() {
+	var scale = 1.5;
+	var viewport = page.getViewport(scale);
+	var context = canvas.getContext('2d');
+	var canvas = document.getElementById("root");
+	canvas.height = viewport.height;
+	canvas.width = viewport.width;
+	var renderContext = {
+	  canvasContext: context,
+	  viewport: viewport
+	};
+	page.render(renderContext);
+
 	var conn = new WebSocket("ws://{{.Host}}/ws");
 	conn.onclose = function(evt) {
 	  root.innerHTML = "Connection closed";
