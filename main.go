@@ -33,8 +33,9 @@ const (
 )
 
 var (
-	bindIp   = flag.String("bind", "8080", "the port you would like to bind to")
-	filename string
+	bindIP   = flag.String("bind", "8080", "the port you would like to bind to")
+	fullpath string
+	basename string
 	upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
@@ -64,7 +65,7 @@ func markdownify(p []byte) []byte {
 }
 
 func readFile() ([]byte, error) {
-	file, err := os.Open(filename)
+	file, err := os.Open(fullpath)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +143,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	watcher := watcher.New()
 	go watch(watcher, ws)
 
-	if err := watcher.Add(filename); err != nil {
+	if err := watcher.Add(fullpath); err != nil {
 		log.Fatal(err)
 	}
 	if err := watcher.Start(filePeriod); err != nil {
@@ -154,7 +155,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/"+filename {
+	if r.URL.Path != "/"+basename {
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
@@ -170,11 +171,11 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 	var v = struct {
 		Host     string
-		Filename string
+		Basename string
 		Data     template.HTML
 	}{
 		r.Host,
-		filename,
+		basename,
 		template.HTML(markdownify(p)),
 	}
 
@@ -182,23 +183,25 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	var err error
 	flag.Parse()
 	if flag.NArg() == 0 {
 		log.Fatal("must specify a file")
 	}
-	filename = flag.Args()[0]
-	if !strings.HasSuffix(filename, "md") {
-		log.Fatal("must specify a markdown file")
-	}
-	path, err := filepath.Abs(filename)
+	fileArg := flag.Args()[0]
+	fullpath, err = filepath.Abs(fileArg)
 	if err != nil {
 		log.Fatal(err)
 	}
+	basename = filepath.Base(fullpath)
+	if !strings.HasSuffix(basename, "md") {
+		log.Fatal("must specify a markdown file")
+	}
 
-	fmt.Printf("view at http://localhost:%s/%s\n", *bindIp, filename)
+	fmt.Printf("view at http://localhost:%s/%s\n", *bindIP, basename)
 
-	http.Handle("/", http.FileServer(http.Dir(filepath.Dir(path))))
-	http.HandleFunc("/"+filename, handler)
+	http.Handle("/", http.FileServer(http.Dir(filepath.Dir(fullpath))))
+	http.HandleFunc("/"+basename, handler)
 	http.HandleFunc("/ws", wsHandler)
 	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
 		dec := base64.NewDecoder(base64.StdEncoding, strings.NewReader(icon))
@@ -206,7 +209,7 @@ func main() {
 		io.Copy(w, dec)
 	})
 
-	if err := http.ListenAndServe(":"+*bindIp, nil); err != nil {
+	if err := http.ListenAndServe(":"+*bindIP, nil); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -219,7 +222,7 @@ const homeHTML = `
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/4.0.0/github-markdown.css"
     />
-    <title>{{.Filename}}</title>
+    <title>{{.Basename}}</title>
   </head>
   <body>
     <div id="root" class="markdown-body">{{.Data}}</div>
