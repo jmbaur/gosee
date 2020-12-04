@@ -186,19 +186,22 @@ func main() {
 	var err error
 	flag.Parse()
 	if flag.NArg() == 0 {
-		log.Fatal("must specify a file")
+		fmt.Println("Must specify a file")
+		os.Exit(1)
 	}
 	fileArg := flag.Args()[0]
 	fullpath, err = filepath.Abs(fileArg)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Printf("Failed to get path to file: %v\n", err)
+		os.Exit(2)
 	}
 	basename = filepath.Base(fullpath)
 	if !strings.HasSuffix(basename, "md") {
-		log.Fatal("must specify a markdown file")
+		fmt.Println("Must specify a markdown file")
+		os.Exit(3)
 	}
 
-	fmt.Printf("view at http://localhost:%s/%s\n", *bindIP, basename)
+	fmt.Printf("View preview at http://localhost:%s/%s\n", *bindIP, basename)
 
 	http.Handle("/", http.FileServer(http.Dir(filepath.Dir(fullpath))))
 	http.HandleFunc("/"+basename, handler)
@@ -210,7 +213,8 @@ func main() {
 	})
 
 	if err := http.ListenAndServe(":"+*bindIP, nil); err != nil {
-		log.Fatal(err)
+		fmt.Printf("Failed to run server: %v\n", err)
+		os.Exit(4)
 	}
 }
 
