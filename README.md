@@ -8,7 +8,7 @@ For people who use vim or another terminal based editor who want to see their ma
 
 ### Usage
 
-`gosee <file>`
+`gosee [-port 8080] <file>`
 
 GoSee will watch a markdown file for changes and send updates to the browser used for viewing. Static assets can be placed in a `static` directory, which will be served by GoSee.
 
