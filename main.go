@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -33,7 +34,7 @@ const (
 )
 
 var (
-	bindIP   = flag.String("bind", "8080", "the port you would like to bind to")
+	port     = flag.String("port", "8080", "the port you would like to bind to")
 	fullpath string
 	basename string
 	upgrader = websocket.Upgrader{
@@ -201,8 +202,6 @@ func main() {
 		os.Exit(3)
 	}
 
-	fmt.Printf("View preview at http://localhost:%s/%s\n", *bindIP, basename)
-
 	http.Handle("/", http.FileServer(http.Dir(filepath.Dir(fullpath))))
 	http.HandleFunc("/"+basename, handler)
 	http.HandleFunc("/ws", wsHandler)
@@ -212,10 +211,13 @@ func main() {
 		io.Copy(w, dec)
 	})
 
-	if err := http.ListenAndServe(":"+*bindIP, nil); err != nil {
-		fmt.Printf("Failed to run server: %v\n", err)
-		os.Exit(4)
+	ip := "0.0.0.0"
+	if runtime.GOOS == "windows" {
+		ip = "127.0.0.1"
 	}
+
+	fmt.Printf("View preview at http://%s:%s/%s\n", ip, *port, basename)
+	log.Fatal(http.ListenAndServe(ip+":"+*port, nil))
 }
 
 const homeHTML = `
