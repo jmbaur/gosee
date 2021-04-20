@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -185,21 +184,21 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	var err error
+	host := flag.String("host", ":8080", "IP and port to bind to")
 	flag.Parse()
-	if flag.NArg() == 0 {
-		fmt.Println("Must specify a file")
-		os.Exit(1)
+
+	args := flag.Args()
+	if len(args) != 1 {
+		log.Fatalln("Must specify a file")
 	}
-	fileArg := flag.Args()[0]
-	fullpath, err = filepath.Abs(fileArg)
+
+	fullpath, err = filepath.Abs(args[0])
 	if err != nil {
-		fmt.Printf("Failed to get path to file: %v\n", err)
-		os.Exit(2)
+		log.Fatalf("Failed to get path to file: %v\n", err)
 	}
 	basename = filepath.Base(fullpath)
 	if !strings.HasSuffix(basename, "md") {
-		fmt.Println("Must specify a markdown file")
-		os.Exit(3)
+		log.Fatalln("Must specify a markdown file")
 	}
 
 	http.Handle("/", http.FileServer(http.Dir(filepath.Dir(fullpath))))
@@ -211,13 +210,14 @@ func main() {
 		io.Copy(w, dec)
 	})
 
-	ip := "0.0.0.0"
-	if runtime.GOOS == "windows" {
-		ip = "127.0.0.1"
+	split := strings.Split(*host, ":")
+	ip := split[0]
+	if ip == "" {
+		ip = "0.0.0.0"
 	}
 
-	fmt.Printf("View preview at http://%s:%s/%s\n", ip, *port, basename)
-	log.Fatal(http.ListenAndServe(ip+":"+*port, nil))
+	fmt.Printf("View preview at http://%s%s/%s\n", ip, *host, basename)
+	log.Fatalln(http.ListenAndServe(*host, nil))
 }
 
 const homeHTML = `
