@@ -196,6 +196,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to get path to file: %v\n", err)
 	}
+
+	if _, err := os.Stat(fullpath); err != nil {
+		log.Fatal(err)
+	}
+
 	basename = filepath.Base(fullpath)
 	if !strings.HasSuffix(basename, "md") {
 		log.Fatalln("Must specify a markdown file")
