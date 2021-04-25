@@ -227,10 +227,10 @@ func main() {
 	split := strings.Split(*host, ":")
 	ip := split[0]
 	if ip == "" {
-		ip = "0.0.0.0"
+		*host = "0.0.0.0" + *host
 	}
 
-	fmt.Printf("View preview at http://%s%s/%s\n", ip, *host, basename)
+	fmt.Printf("View preview at http://%s/%s\n", *host, basename)
 	log.Fatalln(http.ListenAndServe(*host, nil))
 }
 
