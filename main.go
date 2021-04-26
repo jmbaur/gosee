@@ -235,29 +235,35 @@ func main() {
 const homeHTML = `
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/4.0.0/github-markdown.css"
-    />
-    <title>{{.Basename}}</title>
-  </head>
-  <body>
-    <div id="root" class="markdown-body">{{.Data}}</div>
-    <script type="text/javascript">
-      (function() {
-	var root = document.getElementById("root");
-	var conn = new WebSocket("ws://{{.Host}}/ws");
-	conn.onclose = function(evt) {
-	  root.innerHTML = "Connection closed";
-	  console.log("connection closed");
-	};
-	conn.onmessage = function(evt) {
-	  console.log("file updated");
-	  root.innerHTML = evt.data;
-	};
-      })();
-    </script>
-  </body>
+	<head>
+		<link
+			rel="stylesheet"
+			href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/4.0.0/github-markdown.css"
+		/>
+		<title>{{.Basename}}</title>
+	</head>
+	<style>
+		#outer {
+			display: flex;
+			justify-content: center;
+		}
+	</style>
+	<body>
+		<div id="outer" class="markdown-body"><div id="inner">{{.Data}}</div></div>
+		<script type="text/javascript">
+			(function () {
+				var inner = document.getElementById("inner");
+				var conn = new WebSocket("ws://{{.Host}}/ws");
+				conn.onclose = function (evt) {
+					inner.innerHTML = "Connection closed";
+					console.log("connection closed");
+				};
+				conn.onmessage = function (evt) {
+					console.log("file updated");
+					inner.innerHTML = evt.data;
+				};
+			})();
+		</script>
+	</body>
 </html>
 `
