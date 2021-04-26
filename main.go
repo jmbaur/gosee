@@ -41,7 +41,7 @@ var (
 	homeTempl = template.Must(template.New("").Parse(homeHTML))
 )
 
-func markdownify(p []byte) []byte {
+func markdownify(p []byte) ([]byte, error) {
 	markdown := goldmark.New(
 		goldmark.WithExtensions(
 			highlighting.NewHighlighting(
@@ -56,10 +56,10 @@ func markdownify(p []byte) []byte {
 	)
 	var buf bytes.Buffer
 	if err := markdown.Convert(p, &buf); err != nil {
-		log.Fatalln(err)
+		return nil, err
 	}
 
-	return buf.Bytes()
+	return buf.Bytes(), nil
 }
 
 func readFile() ([]byte, error) {
@@ -117,11 +117,15 @@ func watch(w *watcher.Watcher, ws *websocket.Conn) {
 				p = []byte(err.Error())
 			}
 			ws.SetWriteDeadline(time.Now().Add(writeWait))
-			if err := ws.WriteMessage(websocket.TextMessage, markdownify(p)); err != nil {
-				return
+			data, err := markdownify(p)
+			if err != nil {
+				log.Printf("failed to compile markdown: %+v\n", err)
+			}
+			if err := ws.WriteMessage(websocket.TextMessage, data); err != nil {
+				log.Printf("failed to write to websocket: %+v\n", err)
 			}
 		case err := <-w.Error:
-			log.Fatal(err)
+			log.Fatalln(err)
 		case <-w.Closed:
 			return
 		}
@@ -167,6 +171,11 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		p = []byte(err.Error())
 	}
 
+	var data []byte
+	data, err = markdownify(p)
+	if err != nil {
+		data = []byte(err.Error())
+	}
 	var v = struct {
 		Host     string
 		Basename string
@@ -174,7 +183,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}{
 		r.Host,
 		basename,
-		template.HTML(markdownify(p)),
+		template.HTML(data),
 	}
 
 	homeTempl.Execute(w, &v)
@@ -216,10 +225,10 @@ func main() {
 	split := strings.Split(*host, ":")
 	ip := split[0]
 	if ip == "" {
-		ip = "0.0.0.0"
+		*host = "0.0.0.0" + *host
 	}
 
-	fmt.Printf("View preview at http://%s%s/%s\n", ip, *host, basename)
+	fmt.Printf("View preview at http://%s/%s\n", *host, basename)
 	log.Fatalln(http.ListenAndServe(*host, nil))
 }
 
