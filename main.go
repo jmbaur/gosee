@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -228,8 +229,14 @@ func main() {
 		*host = "0.0.0.0" + *host
 	}
 
-	fmt.Printf("View preview at http://%s/%s\n", *host, basename)
-	log.Fatalln(http.ListenAndServe(*host, nil))
+	url := fmt.Sprintf("http://%s/%s", *host, basename)
+	cmd := exec.Command("xdg-open", url)
+	if err := cmd.Run(); err != nil {
+		log.Println(err)
+	}
+
+	log.Println("View preview at", url)
+	log.Fatal(http.ListenAndServe(*host, nil))
 }
 
 const homeHTML = `

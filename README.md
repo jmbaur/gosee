@@ -7,7 +7,7 @@ A minimal, live markdown previewer.
 ### Usage
 
 ```
-$ gosee [-host :8080] <file>
+$ gosee [-host <ip>:<port>] <file>
 ```
 
 GoSee will watch a markdown file for changes and send updates to the browser
