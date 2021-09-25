@@ -242,15 +242,15 @@ func main() {
 	if *open {
 		openCmd, ok := openCmds[runtime.GOOS]
 		if !ok {
-			log.Println("Could not find command to open preview with")
+			fmt.Println("Could not find command to open preview with")
 		}
 		cmd := exec.Command(openCmd, url)
 		if err := cmd.Run(); err != nil {
-			log.Println(err)
+			fmt.Println(err)
 		}
 	}
 
-	log.Println("View preview at", url)
+	fmt.Println("View preview at", url)
 	log.Fatal(http.ListenAndServe(*host, nil))
 }
 
