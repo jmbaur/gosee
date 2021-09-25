@@ -195,24 +195,23 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	host := flag.String("host", ":8080", "IP and port to bind to")
+	tryFile := flag.String("file", "README.md", "File to use")
 	open := flag.Bool("open", true, "Open preview in the default browser")
 	flag.Parse()
 
-	for _, file := range append([]string{flag.Arg(0)}, tryFiles...) {
-		var err error
-
-		fullpath, err = filepath.Abs(file)
-		if err != nil {
-			log.Fatalf("Failed to get path to file: %v\n", err)
-		}
-
-		if info, err := os.Stat(fullpath); err != nil || info.IsDir() {
-			continue
-		} else {
-			break
-		}
+	var err error
+	fullpath, err = filepath.Abs(*tryFile)
+	if err != nil {
+		log.Fatalf("Failed to get path to file: %v\n", err)
 	}
 
+	info, err := os.Stat(fullpath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if info.IsDir() {
+		log.Fatal("File is directory")
+	}
 	if fullpath == "" {
 		log.Fatal("could not find markdown file to use")
 	}
