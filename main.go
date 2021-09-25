@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -40,6 +41,8 @@ var (
 		WriteBufferSize: 1024,
 	}
 	homeTempl = template.Must(template.New("").Parse(homeHTML))
+	tryFiles  = []string{"README.md", "readme.md", "CONTRIBUTING.md", "contributing.md", "NOTES.md", "notes.md"}
+	openCmds  = map[string]string{"linux": "xdg-open", "darwin": "open"}
 )
 
 func markdownify(p []byte) ([]byte, error) {
@@ -191,22 +194,27 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	var err error
 	host := flag.String("host", ":8080", "IP and port to bind to")
+	open := flag.Bool("open", true, "Open preview in the default browser")
 	flag.Parse()
 
-	args := flag.Args()
-	if len(args) != 1 {
-		log.Fatalln("Must specify a file")
+	for _, file := range append([]string{flag.Arg(0)}, tryFiles...) {
+		var err error
+
+		fullpath, err = filepath.Abs(file)
+		if err != nil {
+			log.Fatalf("Failed to get path to file: %v\n", err)
+		}
+
+		if info, err := os.Stat(fullpath); err != nil || info.IsDir() {
+			continue
+		} else {
+			break
+		}
 	}
 
-	fullpath, err = filepath.Abs(args[0])
-	if err != nil {
-		log.Fatalf("Failed to get path to file: %v\n", err)
-	}
-
-	if _, err := os.Stat(fullpath); err != nil {
-		log.Fatal(err)
+	if fullpath == "" {
+		log.Fatal("could not find markdown file to use")
 	}
 
 	basename = filepath.Base(fullpath)
@@ -230,9 +238,16 @@ func main() {
 	}
 
 	url := fmt.Sprintf("http://%s/%s", *host, basename)
-	cmd := exec.Command("xdg-open", url)
-	if err := cmd.Run(); err != nil {
-		log.Println(err)
+
+	if *open {
+		openCmd, ok := openCmds[runtime.GOOS]
+		if !ok {
+			log.Println("Could not find command to open preview with")
+		}
+		cmd := exec.Command(openCmd, url)
+		if err := cmd.Run(); err != nil {
+			log.Println(err)
+		}
 	}
 
 	log.Println("View preview at", url)
