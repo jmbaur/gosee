@@ -193,10 +193,24 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	homeTempl.Execute(w, &v)
 }
 
+func openDefault() bool {
+	var b bool = true
+	if runtime.GOOS == "linux" {
+		b = false
+		_, display_ok := os.LookupEnv("DISPLAY")
+		_, wl_display_ok := os.LookupEnv("WAYLAND_DISPLAY")
+		if display_ok || wl_display_ok {
+			b = true
+		}
+	}
+	return b
+}
+
 func main() {
+
 	host := flag.String("host", ":8080", "IP and port to bind to")
 	tryFile := flag.String("file", "README.md", "File to use")
-	open := flag.Bool("open", true, "Open preview in the default browser")
+	open := flag.Bool("open", openDefault(), "Open preview in the default browser")
 	flag.Parse()
 
 	var err error
