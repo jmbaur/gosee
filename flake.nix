@@ -1,6 +1,7 @@
 {
   description = "gosee";
 
+  inputs.nixpkgs.url = "nixpkgs/nixos-21.11-small";
   inputs.flake-utils.url = "github:numtide/flake-utils";
 
   outputs = { self, nixpkgs, flake-utils }:
@@ -14,5 +15,6 @@
           vendorSha256 = "17icimk6gnhxbv0dc5h9ld6v9ksq63i5zhh0yv5j7hh43j84abb8";
         };
         defaultPackage = packages.gosee;
+        overlay = self: super: { gosee = packages.gosee; };
       });
 }
