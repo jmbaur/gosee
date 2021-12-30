@@ -254,12 +254,8 @@ func main() {
 
 	if *open {
 		openCmd, ok := openCmds[runtime.GOOS]
-		if !ok {
-			fmt.Println("Could not find command to open preview with")
-		}
-		cmd := exec.Command(openCmd, url)
-		if err := cmd.Run(); err != nil {
-			fmt.Println(err)
+		if ok {
+			_ = exec.Command(openCmd, url).Run()
 		}
 	}
 
