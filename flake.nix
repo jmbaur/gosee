@@ -20,6 +20,6 @@
         })
     //
     {
-      overlay = self: super: { gosee = self.packages.gosee; };
+      overlay = self: super: { gosee = inputs.self.packages.gosee; };
     };
 }
