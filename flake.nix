@@ -11,7 +11,7 @@
         version = "0.1.0";
         src = builtins.path { path = ./.; };
         CGO_ENABLED = 0;
-        vendorSha256 = "17icimk6gnhxbv0dc5h9ld6v9ksq63i5zhh0yv5j7hh43j84abb8";
+        vendorSha256 = "sha256-dwSyTFiv06Yny9H/9DzYBtZrTn629jGR4DiKn7HM4tA=";
       };
     };
   } //
@@ -23,7 +23,10 @@
       };
     in
     rec {
-      devShell = pkgs.mkShell { buildInputs = with pkgs; [ git go_1_17 entr ]; };
+      devShell = pkgs.mkShell {
+        buildInputs = with pkgs; [ git go_1_17 entr ];
+        CGO_ENABLED = 0;
+      };
       packages.gosee = pkgs.gosee;
       defaultPackage = pkgs.gosee;
       apps.gosee = flake-utils.lib.mkApp { drv = pkgs.gosee; name = "gosee"; };

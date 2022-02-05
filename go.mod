@@ -1,12 +1,16 @@
 module github.com/jmbaur/gosee
 
-go 1.16
+go 1.17
 
 require (
 	github.com/gorilla/websocket v1.4.2
-	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/radovskyb/watcher v1.0.7
-	github.com/yuin/goldmark v1.1.32
-	github.com/yuin/goldmark-highlighting v0.0.0-20200307114337-60d527fdb691
-	golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae // indirect
+	github.com/yuin/goldmark v1.4.4
+	github.com/yuin/goldmark-highlighting v0.0.0-20210516132338-9216f9c5aa01
+)
+
+require (
+	github.com/alecthomas/chroma v0.7.2-0.20200305040604-4f3623dce67a // indirect
+	github.com/danwakefield/fnmatch v0.0.0-20160403171240-cbb64ac3d964 // indirect
+	github.com/dlclark/regexp2 v1.2.0 // indirect
 )
