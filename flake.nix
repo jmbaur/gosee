@@ -33,5 +33,4 @@
       defaultApp = apps.gosee;
     });
 
-
 }
