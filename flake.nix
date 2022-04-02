@@ -11,7 +11,7 @@
         version = "0.1.0";
         src = builtins.path { path = ./.; };
         CGO_ENABLED = 0;
-        vendorSha256 = "sha256-dwSyTFiv06Yny9H/9DzYBtZrTn629jGR4DiKn7HM4tA=";
+        vendorSha256 = "sha256-ISlKGEdypPxKUB7eht4Wj+zLdTA1z1tPvBE4vsVaEyU=";
       };
     };
   } //
