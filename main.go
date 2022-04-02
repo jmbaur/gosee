@@ -255,7 +255,9 @@ func main() {
 	if *open {
 		openCmd, ok := openCmds[runtime.GOOS]
 		if ok {
-			_ = exec.Command(openCmd, url).Run()
+			go func() {
+				_ = exec.Command(openCmd, url).Run()
+			}()
 		}
 	}
 
