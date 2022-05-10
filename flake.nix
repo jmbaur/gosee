@@ -1,11 +1,11 @@
 {
   description = "gosee";
 
-  inputs.nixpkgs.url = "nixpkgs/nixos-21.11";
+  inputs.nixpkgs.url = "nixpkgs/nixos-unstable";
   inputs.flake-utils.url = "github:numtide/flake-utils";
 
   outputs = { self, nixpkgs, flake-utils }@inputs: {
-    overlay = final: prev: {
+    overlays.default = final: prev: {
       gosee = nixpkgs.legacyPackages.${prev.system}.buildGo117Module {
         pname = "gosee";
         version = "0.1.0";
@@ -18,19 +18,19 @@
   flake-utils.lib.eachDefaultSystem (system:
     let
       pkgs = import nixpkgs {
-        overlays = [ self.overlay ];
+        overlays = [ self.overlays.default ];
         inherit system;
       };
     in
     rec {
-      devShell = pkgs.mkShell {
-        buildInputs = with pkgs; [ git go_1_17 entr ];
+      devShells.default = pkgs.mkShell {
+        buildInputs = with pkgs; [ git go_1_18 entr ];
         CGO_ENABLED = 0;
       };
       packages.gosee = pkgs.gosee;
-      defaultPackage = pkgs.gosee;
+      packages.default = pkgs.gosee;
       apps.gosee = flake-utils.lib.mkApp { drv = pkgs.gosee; name = "gosee"; };
-      defaultApp = apps.gosee;
+      apps.default = apps.gosee;
     });
 
 }
