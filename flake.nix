@@ -5,15 +5,7 @@
   inputs.flake-utils.url = "github:numtide/flake-utils";
 
   outputs = inputs: with inputs; {
-    overlays.default = final: prev: {
-      gosee = prev.buildGoModule {
-        pname = "gosee";
-        version = "0.1.0";
-        src = ./.;
-        CGO_ENABLED = 0;
-        vendorSha256 = "sha256-0pmE22lo4mxYuAluCnXTliNVLacGxAMLmmr7W5ex+uI=";
-      };
-    };
+    overlays.default = _: prev: { gosee = prev.callPackage ./. { }; };
   } // flake-utils.lib.eachDefaultSystem (system:
     let
       pkgs = import nixpkgs {
@@ -23,13 +15,11 @@
     in
     rec {
       devShells.default = pkgs.mkShell {
-        buildInputs = with pkgs; [ go_1_18 entr ];
-        CGO_ENABLED = 0;
+        inherit (pkgs.gosee) CGO_ENABLED;
+        buildInputs = with pkgs; [ go ];
       };
-      packages.gosee = pkgs.gosee;
       packages.default = pkgs.gosee;
-      apps.gosee = flake-utils.lib.mkApp { drv = pkgs.gosee; name = "gosee"; };
-      apps.default = apps.gosee;
+      apps.default = { type = "app"; program = "${pkgs.gosee}/bin/gosee"; };
     });
 
 }

@@ -2,11 +2,11 @@ package main
 
 import (
 	"bytes"
-	"encoding/base64"
+	_ "embed"
+	"errors"
 	"flag"
 	"fmt"
 	"html/template"
-	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -30,18 +30,20 @@ const (
 	pongWait   = 60 * time.Second
 	pingPeriod = (pongWait * 9) / 10
 	filePeriod = 100 * time.Millisecond
-	icon       = `iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAMAAAD04JH5AAABdFBMVEUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKUwSXAAAAe3RSTlMAAQIDBAUGBwkKDBETFRYXGhsfIiMnKSorLTAxMjM0Njc4P0VHTE1OUlNXWlxgY2RlZmprbW50d3yDhIWJiouNjo+QkpSWnZ+goqmrrK2ur7W2uLm9vsPIzM7Q0dLU1dba29/g4+Tm6Ors7e7v8PHy9PX29/j5+vv8/f6uVqFrAAAC9klEQVR4nOya91sTSxSGT3ZzrwEhUQSiBrCiWLD3hlIURLAhlgUsJFaUhKLJnn/eZxOTwJTdWXVmHvV8v2Xm7LyvySe7FKBQKBQKhUKhUCiUanJD3ic0mpX50d4Gvv2uWXg90+kav3vRDh+xkK3++9/Y4iMWMgBg6f2vZQog59sUwB4YssrHEfDsCsyB4f//bIpgl49IAiTwZwv4vu9XKpVKuVwu/zYB9lFhXHzdODsXdc5PC7QsiC5baDEmANkSf1Upy43pE4BB/qpBfkqjAF8DrgCaBdga8AXQLMDUQFAA3QKbayAogHaBjTUQFUC/QLMGwgLoF2jUQFwAAwL1GogLYEKgVgNJAYwIBDWQFcCIAGRL0gKYEYBBaQEMCYSGBEiABP5egRNi3kkR4Jia6/FYAqu9ojP61kQCnztU+DuWYwngYht/Rtui+C2edaP5yafxPgLERw675jyWfcaXogWuxuwAIl5m165IS/ZtTxR/fyW+gN+/eemQL2/569Zw/tY8y1MQwKXOjSudS7K5ILfDBe5xPBUBfJFqLqQ8+VyQI2H8UyxOUQAnmgsTYXOI+HG7nN/Ff6et+hXsTP312fA5RJxJyPj/P+f4ygLre2sv961HCuAFmcBNnq8sgPn24FW6EDUXyO4W8w+KfjCvfhOZcQHcJ9FziPgyJeKn3wn4MQTwGsB1lTlEHBMJPBDx4wjgwIDaHCL28/zzQn4sgS/LygLvM+z+rrVfF4gz95DZTs3LztEkgOc2b49Jz9ElsLpz4+5h2TH6BNDb0tzc9sGCAN5q7DkzUr5OAf9Afe+inK9TAN/+eJrs+6pFIJFIJBzHcVzXdZPJpGjmfvWE1lchfM2/MTkdCNwJHdErUOoCOBo+olcAn/3XsWRVAG/MRgzoFogMCcCKXX4RZPdpQ/Fg1K7AMPTaFcgBTNvkTwJApmCPn6/+MVfWmkG+u3bHzUzZ4U+mGzf9npG5oll40RvOsY8eFAqFQqFQKBQK5R/N9wAAAP//NnxaZ7cRZpgAAAAASUVORK5CYII=`
 )
 
 var (
-	fullpath string
-	basename string
-	upgrader = websocket.Upgrader{
+	//go:embed md.webp
+	icon string
+	//go:embed index.html
+	indexHTML string
+	fullpath  string
+	basename  string
+	upgrader  = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
 	}
-	homeTempl = template.Must(template.New("").Parse(homeHTML))
-	tryFiles  = []string{"README.md", "readme.md", "CONTRIBUTING.md", "contributing.md", "NOTES.md", "notes.md"}
+	homeTempl = template.Must(template.New("").Parse(indexHTML))
 	openCmds  = map[string]string{"linux": "xdg-open", "darwin": "open"}
 )
 
@@ -101,13 +103,10 @@ func writer(ws *websocket.Conn) {
 		ws.Close()
 	}()
 
-	for {
-		select {
-		case <-pingTicker.C:
-			ws.SetWriteDeadline(time.Now().Add(writeWait))
-			if err := ws.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
-				return
-			}
+	for range pingTicker.C {
+		ws.SetWriteDeadline(time.Now().Add(writeWait))
+		if err := ws.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
+			return
 		}
 	}
 }
@@ -134,7 +133,6 @@ func watch(w *watcher.Watcher, ws *websocket.Conn) {
 			return
 		}
 	}
-
 }
 
 func wsHandler(w http.ResponseWriter, r *http.Request) {
@@ -180,7 +178,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		data = []byte(err.Error())
 	}
-	var v = struct {
+	v := struct {
 		Host     string
 		Basename string
 		Data     template.HTML
@@ -194,7 +192,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func openDefault() bool {
-	var b bool = true
+	b := false
 	if runtime.GOOS == "linux" {
 		b = false
 		_, display_ok := os.LookupEnv("DISPLAY")
@@ -206,9 +204,8 @@ func openDefault() bool {
 	return b
 }
 
-func main() {
-
-	host := flag.String("host", ":8080", "IP and port to bind to")
+func logic() error {
+	host := flag.String("host", "[::1]:8080", "IP and port to bind to")
 	tryFile := flag.String("file", "README.md", "File to use")
 	open := flag.Bool("open", openDefault(), "Open preview in the default browser")
 	flag.Parse()
@@ -216,39 +213,32 @@ func main() {
 	var err error
 	fullpath, err = filepath.Abs(*tryFile)
 	if err != nil {
-		log.Fatalf("Failed to get path to file: %v\n", err)
+		return fmt.Errorf("failed to get path to file: %v", err)
 	}
 
 	info, err := os.Stat(fullpath)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	if info.IsDir() {
-		log.Fatal("File is directory")
+		return errors.New("file is directory")
 	}
 	if fullpath == "" {
-		log.Fatal("could not find markdown file to use")
+		return errors.New("could not find markdown file to use")
 	}
 
 	basename = filepath.Base(fullpath)
 	if !strings.HasSuffix(basename, "md") {
-		log.Fatalln("Must specify a markdown file")
+		return errors.New("must specify a markdown file")
 	}
 
 	http.Handle("/", http.FileServer(http.Dir(filepath.Dir(fullpath))))
 	http.HandleFunc("/"+basename, handler)
 	http.HandleFunc("/ws", wsHandler)
 	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
-		dec := base64.NewDecoder(base64.StdEncoding, strings.NewReader(icon))
-		w.Header().Set("Content-Type", "image/png")
-		io.Copy(w, dec)
+		w.Header().Set("Content-Type", "image/webp")
+		fmt.Fprintln(w, icon)
 	})
-
-	split := strings.Split(*host, ":")
-	ip := split[0]
-	if ip == "" {
-		*host = "0.0.0.0" + *host
-	}
 
 	url := fmt.Sprintf("http://%s/%s", *host, basename)
 
@@ -262,41 +252,11 @@ func main() {
 	}
 
 	fmt.Println("View preview at", url)
-	log.Fatal(http.ListenAndServe(*host, nil))
+	return http.ListenAndServe(*host, nil)
 }
 
-const homeHTML = `
-<!DOCTYPE html>
-<html lang="en">
-	<head>
-		<link
-			rel="stylesheet"
-			href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/4.0.0/github-markdown.css"
-		/>
-		<title>{{.Basename}}</title>
-	</head>
-	<style>
-		#outer {
-			display: flex;
-			justify-content: center;
-		}
-	</style>
-	<body>
-		<div id="outer" class="markdown-body"><div id="inner">{{.Data}}</div></div>
-		<script type="text/javascript">
-			(function () {
-				var inner = document.getElementById("inner");
-				var conn = new WebSocket("ws://{{.Host}}/ws");
-				conn.onclose = function (evt) {
-					inner.innerHTML = "Connection closed";
-					console.log("connection closed");
-				};
-				conn.onmessage = function (evt) {
-					console.log("file updated");
-					inner.innerHTML = evt.data;
-				};
-			})();
-		</script>
-	</body>
-</html>
-`
+func main() {
+	if err := logic(); err != nil {
+		log.Fatal(err)
+	}
+}
