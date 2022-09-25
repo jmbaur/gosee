@@ -1,14 +1,15 @@
 #outer {
-  position: absolute;
+  overflow: auto;
+  position: relative;
   display: flex;
   justify-content: center;
   height: 100%;
   width: 100%;
 }
 html, body {
-  height: -moz-available;
-  width: -moz-available;
   margin: 0;
   padding: 0;
   border: 0;
+  height: 100%;
+  width: 100%;
 }
