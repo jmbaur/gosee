@@ -102,7 +102,6 @@ func writer(ws *websocket.Conn) {
 }
 
 func watch(fullpath string) func(w *watcher.Watcher, ws *websocket.Conn) {
-	log.Println(fullpath)
 	return func(w *watcher.Watcher, ws *websocket.Conn) {
 		for {
 			select {
@@ -129,6 +128,7 @@ func watch(fullpath string) func(w *watcher.Watcher, ws *websocket.Conn) {
 }
 
 func wsHandler(fullpath string) func(w http.ResponseWriter, r *http.Request) {
+	watchFunc := watch(fullpath)
 	return func(w http.ResponseWriter, r *http.Request) {
 		ws, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
@@ -139,7 +139,6 @@ func wsHandler(fullpath string) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		mdWatcher := watcher.New()
-		watchFunc := watch(fullpath)
 		go watchFunc(mdWatcher, ws)
 
 		if err := mdWatcher.Add(fullpath); err != nil {
