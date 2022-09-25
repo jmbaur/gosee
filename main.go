@@ -102,6 +102,7 @@ func writer(ws *websocket.Conn) {
 }
 
 func watch(fullpath string) func(w *watcher.Watcher, ws *websocket.Conn) {
+	log.Println(fullpath)
 	return func(w *watcher.Watcher, ws *websocket.Conn) {
 		for {
 			select {
@@ -137,13 +138,14 @@ func wsHandler(fullpath string) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		watcher := watcher.New()
-		go watch(fullpath)(watcher, ws)
+		mdWatcher := watcher.New()
+		watchFunc := watch(fullpath)
+		go watchFunc(mdWatcher, ws)
 
-		if err := watcher.Add(fullpath); err != nil {
+		if err := mdWatcher.Add(fullpath); err != nil {
 			log.Fatal(err)
 		}
-		if err := watcher.Start(filePeriod); err != nil {
+		if err := mdWatcher.Start(filePeriod); err != nil {
 			log.Fatal(err)
 		}
 
@@ -174,11 +176,9 @@ func handler(fullpath string, basename string) http.HandlerFunc {
 			data = []byte(err.Error())
 		}
 		v := struct {
-			Host     string
 			Basename string
 			Data     template.HTML
 		}{
-			r.Host,
 			basename,
 			template.HTML(data),
 		}

@@ -1,5 +1,5 @@
 var inner = document.getElementById("inner");
-var conn = new WebSocket("ws://{{.Host}}/ws");
+var conn = new WebSocket(`ws://${location.host}/ws`);
 conn.onclose = function (evt) {
   inner.innerHTML = "Connection closed";
   console.log("connection closed");
