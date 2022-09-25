@@ -2,7 +2,7 @@ package main
 
 import (
 	"bytes"
-	_ "embed"
+	"embed"
 	"errors"
 	"flag"
 	"fmt"
@@ -20,8 +20,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/radovskyb/watcher"
 	"github.com/yuin/goldmark"
-	highlighting "github.com/yuin/goldmark-highlighting"
-	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/renderer/html"
 )
 
@@ -33,28 +31,20 @@ const (
 )
 
 var (
-	//go:embed md.webp
-	icon string
-	//go:embed index.html
-	indexHTML string
-	fullpath  string
-	basename  string
-	upgrader  = websocket.Upgrader{
+	//go:embed static
+	staticFS embed.FS
+	//go:embed index.html.tmpl
+	precompiledTmpl string
+	tmpl            = template.Must(template.New("").Parse(precompiledTmpl))
+	upgrader        = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
 	}
-	homeTempl = template.Must(template.New("").Parse(indexHTML))
-	openCmds  = map[string]string{"linux": "xdg-open", "darwin": "open"}
+	openCmds = map[string]string{"linux": "xdg-open", "darwin": "open"}
 )
 
 func markdownify(p []byte) ([]byte, error) {
 	markdown := goldmark.New(
-		goldmark.WithExtensions(
-			highlighting.NewHighlighting(
-				highlighting.WithStyle("github"),
-			),
-			extension.GFM,
-		),
 		goldmark.WithRendererOptions(
 			html.WithHardWraps(),
 			html.WithXHTML(),
@@ -68,7 +58,7 @@ func markdownify(p []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func readFile() ([]byte, error) {
+func readFile(fullpath string) ([]byte, error) {
 	file, err := os.Open(fullpath)
 	if err != nil {
 		return nil, err
@@ -111,84 +101,90 @@ func writer(ws *websocket.Conn) {
 	}
 }
 
-func watch(w *watcher.Watcher, ws *websocket.Conn) {
-	for {
-		select {
-		case <-w.Event:
-			p, err := readFile()
-			if err != nil {
-				p = []byte(err.Error())
+func watch(fullpath string) func(w *watcher.Watcher, ws *websocket.Conn) {
+	return func(w *watcher.Watcher, ws *websocket.Conn) {
+		for {
+			select {
+			case <-w.Event:
+				p, err := readFile(fullpath)
+				if err != nil {
+					p = []byte(err.Error())
+				}
+				ws.SetWriteDeadline(time.Now().Add(writeWait))
+				data, err := markdownify(p)
+				if err != nil {
+					log.Printf("failed to compile markdown: %+v\n", err)
+				}
+				if err := ws.WriteMessage(websocket.TextMessage, data); err != nil {
+					log.Printf("failed to write to websocket: %+v\n", err)
+				}
+			case err := <-w.Error:
+				log.Fatalln(err)
+			case <-w.Closed:
+				return
 			}
-			ws.SetWriteDeadline(time.Now().Add(writeWait))
-			data, err := markdownify(p)
-			if err != nil {
-				log.Printf("failed to compile markdown: %+v\n", err)
+		}
+	}
+}
+
+func wsHandler(fullpath string) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ws, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			if _, ok := err.(websocket.HandshakeError); !ok {
+				log.Println(err)
 			}
-			if err := ws.WriteMessage(websocket.TextMessage, data); err != nil {
-				log.Printf("failed to write to websocket: %+v\n", err)
-			}
-		case err := <-w.Error:
-			log.Fatalln(err)
-		case <-w.Closed:
 			return
 		}
-	}
-}
 
-func wsHandler(w http.ResponseWriter, r *http.Request) {
-	ws, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		if _, ok := err.(websocket.HandshakeError); !ok {
-			log.Println(err)
+		watcher := watcher.New()
+		go watch(fullpath)(watcher, ws)
+
+		if err := watcher.Add(fullpath); err != nil {
+			log.Fatal(err)
 		}
-		return
-	}
+		if err := watcher.Start(filePeriod); err != nil {
+			log.Fatal(err)
+		}
 
-	watcher := watcher.New()
-	go watch(watcher, ws)
-
-	if err := watcher.Add(fullpath); err != nil {
-		log.Fatal(err)
+		go writer(ws)
+		reader(ws)
 	}
-	if err := watcher.Start(filePeriod); err != nil {
-		log.Fatal(err)
-	}
-
-	go writer(ws)
-	reader(ws)
 }
 
-func handler(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/"+basename {
-		http.Error(w, "Not found", http.StatusNotFound)
-		return
-	}
-	if r.Method != "GET" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	p, err := readFile()
-	if err != nil {
-		p = []byte(err.Error())
-	}
+func handler(fullpath string, basename string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/"+basename {
+			http.Error(w, "Not found", http.StatusNotFound)
+			return
+		}
+		if r.Method != "GET" {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		p, err := readFile(fullpath)
+		if err != nil {
+			p = []byte(err.Error())
+		}
 
-	var data []byte
-	data, err = markdownify(p)
-	if err != nil {
-		data = []byte(err.Error())
-	}
-	v := struct {
-		Host     string
-		Basename string
-		Data     template.HTML
-	}{
-		r.Host,
-		basename,
-		template.HTML(data),
-	}
+		var data []byte
+		data, err = markdownify(p)
+		if err != nil {
+			data = []byte(err.Error())
+		}
+		v := struct {
+			Host     string
+			Basename string
+			Data     template.HTML
+		}{
+			r.Host,
+			basename,
+			template.HTML(data),
+		}
 
-	homeTempl.Execute(w, &v)
+		tmpl.Execute(w, &v)
+	}
 }
 
 func openDefault() bool {
@@ -205,13 +201,16 @@ func openDefault() bool {
 }
 
 func logic() error {
-	host := flag.String("host", "[::1]:8080", "IP and port to bind to")
-	tryFile := flag.String("file", "README.md", "File to use")
+	addr := flag.String("addr", "[::1]:1234", "Address to bind on")
 	open := flag.Bool("open", openDefault(), "Open preview in the default browser")
 	flag.Parse()
 
-	var err error
-	fullpath, err = filepath.Abs(*tryFile)
+	tryFile := flag.Arg(0)
+	if tryFile == "" {
+		tryFile = "README.md"
+	}
+
+	fullpath, err := filepath.Abs(tryFile)
 	if err != nil {
 		return fmt.Errorf("failed to get path to file: %v", err)
 	}
@@ -227,20 +226,19 @@ func logic() error {
 		return errors.New("could not find markdown file to use")
 	}
 
-	basename = filepath.Base(fullpath)
+	basename := filepath.Base(fullpath)
 	if !strings.HasSuffix(basename, "md") {
 		return errors.New("must specify a markdown file")
 	}
 
-	http.Handle("/", http.FileServer(http.Dir(filepath.Dir(fullpath))))
-	http.HandleFunc("/"+basename, handler)
-	http.HandleFunc("/ws", wsHandler)
-	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "image/webp")
-		fmt.Fprintln(w, icon)
-	})
+	mux := http.NewServeMux()
+	mux.HandleFunc("/"+basename, handler(fullpath, basename))
+	mux.HandleFunc("/ws", wsHandler(fullpath))
+	mux.Handle("/static/", http.FileServer(http.FS(staticFS)))
+	mux.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("./assets"))))
+	mux.Handle("/public/", http.StripPrefix("/public/", http.FileServer(http.Dir("./public"))))
 
-	url := fmt.Sprintf("http://%s/%s", *host, basename)
+	url := fmt.Sprintf("http://%s/%s", *addr, basename)
 
 	if *open {
 		openCmd, ok := openCmds[runtime.GOOS]
@@ -252,7 +250,7 @@ func logic() error {
 	}
 
 	fmt.Println("View preview at", url)
-	return http.ListenAndServe(*host, nil)
+	return http.ListenAndServe(*addr, mux)
 }
 
 func main() {

@@ -1,17 +1,21 @@
-{ buildGoModule, writeShellScriptBin }:
+{ buildGoModule
+, github-markdown-css
+, CGO_ENABLED
+, ...
+}:
 let
   drv = buildGoModule {
     pname = "gosee";
-    version = "0.1.0";
+    version = "0.2.0";
     src = ./.;
-    CGO_ENABLED = 0;
-    vendorSha256 = "sha256-Zd0YRadV8Gfy2dzP2b9nqZQsR4rXedu+1IHEoYDuzmQ=";
-    passthru.update = writeShellScriptBin "update" ''
-      if [[ $(${drv.go}/bin/go get -u all 2>&1) != "" ]]; then
-        sed -i 's/vendorSha256\ =.*;/vendorSha256="sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";/' default.nix
-        ${drv.go}/bin/go mod tidy
+    vendorSha256 = "sha256-guuJ5NZk7+Ya+oRcvg2paDIagEpKSrcqYJwoorCmb4U=";
+    # this cannot be a symlink since go:embed will not read symlinks
+    preBuild = ''
+      if [[ ! -f static/github-markdown.css ]]; then
+        cp ${github-markdown-css}/github-markdown.css static/github-markdown.css
       fi
     '';
+    inherit CGO_ENABLED;
   };
 in
 drv

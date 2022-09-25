@@ -15,13 +15,29 @@
         "type": "github"
       }
     },
+    "github-markdown-css": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1657279970,
+        "narHash": "sha256-WpGim3yWLx5AaJIwsK5Bx+QGNOI6ShVaN5eOOR1wI5E=",
+        "owner": "sindresorhus",
+        "repo": "github-markdown-css",
+        "rev": "ec90c8c72e77ca5f0a6b048514a11525808d00bd",
+        "type": "github"
+      },
+      "original": {
+        "owner": "sindresorhus",
+        "repo": "github-markdown-css",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1662996720,
-        "narHash": "sha256-XvLQ3SuXnDMJMpM1sv1ifPjBuRytiDYhB12H/BNTjgY=",
+        "lastModified": 1664017330,
+        "narHash": "sha256-919WZKBTxFdTkzIK6uJXE7hwSPQb7e/ekybxxWaotR4=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "5f326e2a403e1cebaec378e72ceaf5725983376d",
+        "rev": "fde244a8c7655bc28616864e2290ad9c95409c2c",
         "type": "github"
       },
       "original": {
@@ -33,6 +49,7 @@
     "root": {
       "inputs": {
         "flake-utils": "flake-utils",
+        "github-markdown-css": "github-markdown-css",
         "nixpkgs": "nixpkgs"
       }
     }

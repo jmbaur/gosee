@@ -1,20 +1,14 @@
-![](./gosee.png)
+![](./assets/gosee.png)
 
 # GoSee
 
-A minimal, live markdown previewer.
+A simple, live markdown previewer. GoSee will watch a markdown file for changes
+and send live updates rendered with GitHub's markdown style to the browser. Any
+external references in your markdown must either be under `./assets` or
+`./public`.
 
 ### Usage
 
+```bash
+gosee [FILE] [-open] [-addr=<addr>]
 ```
-$ gosee -help
-```
-
-GoSee will watch a markdown file for changes and send updates to the browser
-used for viewing. Static assets can be placed in a `static` directory, which
-will be served by GoSee.
-
-### Goals:
-
-- [x] Github-flavored markdown styling
-- [ ] Support for more filetypes (tex?)
