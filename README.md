@@ -9,6 +9,6 @@ external references in your markdown must either be under `./assets` or
 
 ### Usage
 
-```bash
-gosee [FILE] [-open] [-addr=<addr>]
+```console
+$ gosee [FILE] [-open] [-addr=<addr>]
 ```
