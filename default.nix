@@ -10,5 +10,6 @@ buildGoModule {
       cp ${github-markdown-css}/github-markdown.css static/github-markdown.css
     fi
   '';
+  ldflags = [ "-s" "-w" ];
   inherit CGO_ENABLED;
 }
