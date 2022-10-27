@@ -1,3 +1,5 @@
 .direnv
+node_modules
+outputs
 result*
-static/github-markdown.css
+static

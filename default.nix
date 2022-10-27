@@ -1,15 +1,10 @@
-{ buildGoModule, github-markdown-css, CGO_ENABLED ? 0, ... }:
+{ buildGoModule, CGO_ENABLED ? 0, ui-assets, ... }:
 buildGoModule {
   pname = "gosee";
   version = "0.2.1";
   src = ./.;
   vendorSha256 = "sha256-gi1GUaus3r/3P8KBdWndEmHxAXg6vPXnQysGBezO0rQ=";
-  # this cannot be a symlink since go:embed will not read symlinks
-  preBuild = ''
-    if [[ ! -f static/github-markdown.css ]]; then
-      cp ${github-markdown-css}/github-markdown.css static/github-markdown.css
-    fi
-  '';
+  preBuild = "cp -r ${ui-assets} static";
   ldflags = [ "-s" "-w" ];
   inherit CGO_ENABLED;
 }

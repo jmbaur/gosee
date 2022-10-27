@@ -1,28 +1,24 @@
 {
   description = "gosee";
-  inputs = {
-    flake-utils.url = "github:numtide/flake-utils";
-    github-markdown-css.flake = false;
-    github-markdown-css.url = "github:sindresorhus/github-markdown-css";
-    nixpkgs.url = "nixpkgs/nixos-unstable";
-  };
-  outputs = inputs: with inputs; {
-    overlays.default = _: prev: {
-      gosee = prev.callPackage ./. { inherit github-markdown-css; };
-    };
-  } // flake-utils.lib.eachDefaultSystem (system:
+  inputs.nixpkgs.url = "nixpkgs/nixos-unstable";
+  outputs = inputs: with inputs;
     let
-      pkgs = import nixpkgs {
+      forAllSystems = cb: nixpkgs.lib.genAttrs [ "aarch64-linux" "x86_64-linux" "aarch64-darwin" "x86_64-darwin" ] (system: cb {
         inherit system;
-        overlays = [ self.overlays.default ];
-      };
+        pkgs = import nixpkgs { inherit system; overlays = [ self.overlays.default ]; };
+      });
     in
-    rec {
-      devShells.default = pkgs.mkShell {
-        inherit (pkgs.gosee) nativeBuildInputs CGO_ENABLED;
-        shellHook = pkgs.gosee.preBuild;
+    {
+      overlays.default = _: prev: {
+        gosee = prev.callPackage ./. { ui-assets = prev.callPackage ./ui.nix { }; };
       };
-      packages.default = pkgs.gosee;
-      apps.default = { type = "app"; program = "${pkgs.gosee}/bin/gosee"; };
-    });
+      devShells = forAllSystems ({ pkgs, ... }: {
+        default = pkgs.mkShell {
+          buildInputs = with pkgs; [ just esbuild yarn ];
+          inherit (pkgs.gosee) nativeBuildInputs CGO_ENABLED;
+        };
+      });
+      packages = forAllSystems ({ pkgs, ... }: { default = pkgs.gosee; });
+      apps = forAllSystems ({ pkgs, ... }: { default = { type = "app"; program = "${pkgs.gosee}/bin/gosee"; }; });
+    };
 }
