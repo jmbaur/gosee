@@ -7,7 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"html/template"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -63,7 +63,7 @@ func readFile(fullpath string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	p, err := ioutil.ReadAll(file)
+	p, err := io.ReadAll(file)
 	if err != nil {
 		return nil, err
 	}
@@ -239,16 +239,13 @@ func logic() error {
 
 	url := fmt.Sprintf("http://%s/%s", *addr, basename)
 
-	if *open {
-		openCmd, ok := openCmds[runtime.GOOS]
-		if ok {
-			go func() {
-				_ = exec.Command(openCmd, url).Run()
-			}()
-		}
+	if openCmd, ok := openCmds[runtime.GOOS]; *open && ok {
+		go func() {
+			_ = exec.Command(openCmd, url).Run()
+		}()
 	}
 
-	fmt.Println("View preview at", url)
+	fmt.Printf("View preview at %s\n", url)
 	return http.ListenAndServe(*addr, mux)
 }
 

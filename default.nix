@@ -1,4 +1,4 @@
-{ buildGoModule, github-markdown-css, CGO_ENABLED, ... }:
+{ buildGoModule, github-markdown-css, CGO_ENABLED ? 0, ... }:
 buildGoModule {
   pname = "gosee";
   version = "0.2.1";
