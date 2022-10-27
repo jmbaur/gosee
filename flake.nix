@@ -10,7 +10,7 @@
     in
     {
       overlays.default = _: prev: {
-        gosee = prev.callPackage ./. { ui-assets = prev.callPackage ./ui.nix { }; };
+        gosee = prev.callPackage ./. { ui-assets = prev.buildPackages.callPackage ./ui.nix { }; };
       };
       devShells = forAllSystems ({ pkgs, ... }: {
         default = pkgs.mkShell {
