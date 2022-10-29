@@ -14,7 +14,7 @@
       };
       devShells = forAllSystems ({ pkgs, ... }: {
         default = pkgs.mkShell {
-          buildInputs = with pkgs; [ just esbuild yarn ];
+          buildInputs = with pkgs; [ nix-prefetch just esbuild yarn ];
           inherit (pkgs.gosee) nativeBuildInputs CGO_ENABLED;
         };
       });
