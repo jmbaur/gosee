@@ -9,8 +9,15 @@
       });
     in
     {
-      overlays.default = _: prev: {
+      overlays.default = final: prev: {
         gosee = prev.callPackage ./. { ui-assets = prev.buildPackages.callPackage ./ui.nix { }; };
+        vimPlugins = prev.vimPlugins // {
+          gosee-nvim = prev.vimUtils.buildVimPlugin {
+            pname = "gosee-nvim";
+            version = final.gosee.version;
+            src = ./nvim;
+          };
+        };
       };
       devShells = forAllSystems ({ pkgs, ... }: {
         default = pkgs.mkShell {
