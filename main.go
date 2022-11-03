@@ -231,8 +231,7 @@ func logic() error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/"+basename, handler(fullpath, basename))
 	mux.HandleFunc("/ws", wsHandler(fullpath))
-	mux.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("./assets"))))
-	mux.Handle("/public/", http.StripPrefix("/public/", http.FileServer(http.Dir("./public"))))
+	mux.Handle("/", http.StripPrefix("/", http.FileServer(http.Dir("."))))
 
 	url := fmt.Sprintf("http://%s/%s", *addr, basename)
 
