@@ -10,7 +10,7 @@
     in
     {
       overlays.default = final: prev: {
-        gosee = prev.callPackage ./. { ui-assets = prev.buildPackages.callPackage ./ui.nix { }; };
+        gosee = prev.callPackage ./. { };
         vimPlugins = prev.vimPlugins // {
           gosee-nvim = prev.vimUtils.buildVimPlugin {
             pname = "gosee-nvim";
@@ -21,7 +21,7 @@
       };
       devShells = forAllSystems ({ pkgs, ... }: {
         default = pkgs.mkShell {
-          buildInputs = with pkgs; [ nix-prefetch just esbuild yarn ];
+          buildInputs = with pkgs; [ nix-prefetch just ];
           inherit (pkgs.gosee) nativeBuildInputs CGO_ENABLED;
         };
       });

@@ -2,7 +2,7 @@ package main
 
 import (
 	"bytes"
-	"embed"
+	_ "embed"
 	"errors"
 	"flag"
 	"fmt"
@@ -31,8 +31,6 @@ const (
 )
 
 var (
-	//go:embed static
-	staticFS embed.FS
 	//go:embed index.html.tmpl
 	precompiledTmpl string
 	tmpl            = template.Must(template.New("").Parse(precompiledTmpl))
@@ -233,7 +231,6 @@ func logic() error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/"+basename, handler(fullpath, basename))
 	mux.HandleFunc("/ws", wsHandler(fullpath))
-	mux.Handle("/static/", http.FileServer(http.FS(staticFS)))
 	mux.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("./assets"))))
 	mux.Handle("/public/", http.StripPrefix("/public/", http.FileServer(http.Dir("./public"))))
 
