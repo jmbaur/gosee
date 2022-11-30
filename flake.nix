@@ -22,7 +22,7 @@
       devShells = forAllSystems ({ pkgs, ... }: {
         default = pkgs.mkShell {
           buildInputs = with pkgs; [ nix-prefetch just ];
-          inherit (pkgs.gosee) nativeBuildInputs CGO_ENABLED;
+          inherit (pkgs.gosee) nativeBuildInputs;
         };
       });
       packages = forAllSystems ({ pkgs, ... }: { default = pkgs.gosee; });
