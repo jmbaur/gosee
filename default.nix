@@ -3,6 +3,6 @@ buildGoModule {
   pname = "gosee";
   version = "0.2.2";
   src = ./.;
-  vendorSha256 = "sha256-UKN11AJUkddISlsbTV2NDVOiVsYzG5Wzj1eD80t7p64=";
+  vendorSha256 = "sha256-EUlqmPOl8rshRdeQQElba/XCX21W9m2wSvYZFFMwiUk=";
   ldflags = [ "-s" "-w" ];
 }
