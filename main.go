@@ -38,7 +38,7 @@ var (
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
 	}
-	openCmds = map[string]string{"linux": "xdg-open", "darwin": "open"}
+	openCmds = map[string][]string{"linux": {"xdg-open"}, "darwin": {"open"}, "windows": {"cmd", "/c", "start"}}
 )
 
 func markdownify(p []byte) ([]byte, error) {
@@ -237,7 +237,7 @@ func logic() error {
 
 	if openCmd, ok := openCmds[runtime.GOOS]; *open && ok {
 		go func() {
-			_ = exec.Command(openCmd, url).Run()
+			_ = exec.Command(openCmd[0], append(openCmd[1:], url)...).Run()
 		}()
 	}
 
