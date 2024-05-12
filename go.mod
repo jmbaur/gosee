@@ -8,4 +8,4 @@ require (
 	github.com/yuin/goldmark v1.7.1
 )
 
-require golang.org/x/net v0.24.0 // indirect
+require golang.org/x/net v0.25.0 // indirect
