@@ -11,7 +11,7 @@ buildGoModule {
       ./main.go
     ];
   };
-  vendorHash = "sha256-+47rPmgWVmL3+xYbZsaCGmBB7X5LD3k6gBz5/6ltxNU=";
+  vendorHash = "sha256-2JkuOdnbfaKpP6ZcZYQSqhkS0dDXWJ0hFGPpw/oo8rE=";
   ldflags = [
     "-s"
     "-w"
